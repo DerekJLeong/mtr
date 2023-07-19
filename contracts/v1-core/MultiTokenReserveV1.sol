@@ -4,7 +4,6 @@ pragma solidity =0.8.19;
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
-
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -27,6 +26,7 @@ contract MultiTokenReserveV1 is
 {
     using ArraysUpgradeable for uint256[];
     using CountersUpgradeable for CountersUpgradeable.Counter;
+    using StringsUpgradeable for uint256;
 
     CountersUpgradeable.Counter public TOKEN_IDS;
     CountersUpgradeable.Counter public NFT_COLLECTION_IDS;
@@ -82,12 +82,11 @@ contract MultiTokenReserveV1 is
     bytes32 public constant COIN_MINTER_ROLE = keccak256("COIN_MINTER_ROLE");
     bytes32 public constant NFT_MINTER_ROLE = keccak256("NFT_MINTER_ROLE");
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    function initialize() external initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ERC1155_init("https://www.test.ipfs.com/");
@@ -95,17 +94,14 @@ contract MultiTokenReserveV1 is
         __ERC1155Supply_init();
         __ERC1155Receiver_init();
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(OPERATOR_ROLE, msg.sender);
-        _grantRole(COIN_MINTER_ROLE, msg.sender);
-        _grantRole(UPGRADER_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(OPERATOR_ROLE, msg.sender);
+        _setupRole(COIN_MINTER_ROLE, msg.sender);
+        _setupRole(UPGRADER_ROLE, msg.sender);
 
         createFungibleToken(0, 18, "MyToken", "MT", "", true);
     }
 
-    //
-    // Modifiers
-    //
     modifier verifyMint(
         address account,
         uint256 id,
@@ -134,9 +130,6 @@ contract MultiTokenReserveV1 is
         _;
     }
 
-    //
-    // INTERNAL
-    //
     function mintData(
         address account,
         uint256 id,
@@ -146,10 +139,6 @@ contract MultiTokenReserveV1 is
     ) internal {
         require(amount > 0, "Invalid amount");
 
-        // In order to preform a mint the token or collection must exist
-        //
-        // NFT
-        // check if token is non-fungible && collection exists
         if (cID > 0 && cID < NFT_COLLECTION_IDS.current() && amount == 1) {
             require(
                 hasRole(NFT_MINTER_ROLE, msg.sender),
@@ -166,18 +155,13 @@ contract MultiTokenReserveV1 is
                 string.concat(
                     NFT_COLLECTIONS[cID].name,
                     " ",
-                    StringsUpgradeable.toString(
-                        NFT_COLLECTIONS[cID].totalSupply + 1
-                    )
+                    (NFT_COLLECTIONS[cID].totalSupply + 1).toString()
                 ),
                 NFT_COLLECTIONS[cID].symbol,
                 data.length > 0 ? string(data) : ""
             );
             _mint(account, TOKEN_IDS.current(), amount, data);
-        }
-        // Fungible Token
-        // check if token is fungible && exists
-        else if (cID == 0 && TOKEN_RESERVE[id].granularity > 0) {
+        } else if (cID == 0 && TOKEN_RESERVE[id].granularity > 0) {
             require(
                 hasRole(COIN_MINTER_ROLE, msg.sender),
                 "Unauthorized coin minter"
@@ -192,9 +176,7 @@ contract MultiTokenReserveV1 is
             TOKEN_COLLECTION[id] = cID; // Tokens are in collection 0
             TOKEN_RESERVE[id].totalSupply += amount;
             _mint(account, id, amount, data);
-        }
-        // Invalid mint
-        else {
+        } else {
             revert("Invalid mint");
         }
     }
@@ -223,7 +205,7 @@ contract MultiTokenReserveV1 is
             account
         ];
         for (uint256 i = 0; i < ownedNfts.length; i++) {
-            if (ownedNfts[i] == tokenId) {
+            if (NFT_COLLECTIONS[collectionId].nfts[ownedNfts[i]] == tokenId) {
                 return int256(i);
             }
         }
@@ -332,9 +314,7 @@ contract MultiTokenReserveV1 is
             _burnable
         );
         // Deploy ERC20 Proxy Conract
-        address erc20Proxy = address(
-            new ERC20ReserveProxy()
-        );
+        address erc20Proxy = address(new ERC20ReserveProxy());
         // Initialize Token Proxy Contract
         ERC20ReserveProxy(erc20Proxy).initialize(
             msg.sender,
@@ -351,9 +331,7 @@ contract MultiTokenReserveV1 is
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         createCollection(_name, _symbol, _tokenUri, _burnable);
         // Deploy ERC721 Proxy Conract
-        address erc721Proxy = address(
-            new ERC721ReserveProxy()
-        );
+        address erc721Proxy = address(new ERC721ReserveProxy());
         // Initialize Token Proxy Contract
         ERC721ReserveProxy(erc721Proxy).initialize(
             msg.sender,
@@ -388,22 +366,6 @@ contract MultiTokenReserveV1 is
         verifyBatchMint(to, ids, cIDs, amounts, data)
     {
         _mintBatch(to, ids, amounts, data);
-    }
-
-    function burn(
-        address account,
-        uint256 id,
-        uint256 amount
-    ) public override onlyRole(OPERATOR_ROLE) {
-        _burn(account, id, amount);
-    }
-
-    function burnBatch(
-        address account,
-        uint256[] memory ids,
-        uint256[] memory amounts
-    ) public override onlyRole(OPERATOR_ROLE) {
-        _burnBatch(account, ids, amounts);
     }
 
     function getIndexNft(
@@ -465,6 +427,30 @@ contract MultiTokenReserveV1 is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyRole(UPGRADER_ROLE) {}
+
+    function _burn(
+        address account,
+        uint256 id,
+        uint256 amount
+    ) internal override {
+        super._burn(account, id, amount);
+        if (TOKEN_COLLECTION[id] > 0) {
+            removeNFTId(account, id);
+        }
+    }
+
+    function _burnBatch(
+        address account,
+        uint256[] memory ids,
+        uint256[] memory amounts
+    ) internal override {
+        super._burnBatch(account, ids, amounts);
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (TOKEN_COLLECTION[ids[i]] > 0) {
+                removeNFTId(account, ids[i]);
+            }
+        }
+    }
 
     function _beforeTokenTransfer(
         address operator,
