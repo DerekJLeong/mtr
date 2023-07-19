@@ -1,0 +1,25 @@
+{
+  "name": "mtr",
+  "version": "1.0.0",
+  "description": "Easily extensible ERC1155 protocol for creating and managing an ecosystem comprising of multiple ERC20 tokens and ERC721 collections under a single entity, like a DAO governer contract.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DerekJLeong/mtr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DerekJLeong/mtr/issues"
+  },
+  "homepage": "https://github.com/DerekJLeong/mtr#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@openzeppelin/contracts-upgradeable": "^4.9.2",
+    "hardhat": "^2.17.0"
+  }
+}
