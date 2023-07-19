@@ -2,31 +2,34 @@
 pragma solidity =0.8.19;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ArraysUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
-import "./ERC20ReserveProxy.sol";
-import "./ERC721ReserveProxy.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol"; // Added Address library
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol"; // Added EnumerableSet library
+
+// import "./ERC20ReserveProxy.sol";
+// import "./ERC721ReserveProxy.sol";
 // TODO: ERC777ReserveProxy.sol
 
 contract MultiTokenReserveV1 is
     Initializable,
-    ReentrancyGuardUpgradeable,
     AccessControlUpgradeable,
     UUPSUpgradeable,
     ERC1155BurnableUpgradeable,
-    ERC1155HolderUpgradeable,
-    ERC1155SupplyUpgradeable
+    ERC1155HolderUpgradeable
 {
     using ArraysUpgradeable for uint256[];
     using CountersUpgradeable for CountersUpgradeable.Counter;
     using StringsUpgradeable for uint256;
+    using SafeMathUpgradeable for uint256;
+    using AddressUpgradeable for address; // Using Address library
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet; // Using EnumerableSet library
 
     CountersUpgradeable.Counter public TOKEN_IDS;
     CountersUpgradeable.Counter public NFT_COLLECTION_IDS;
@@ -68,7 +71,7 @@ contract MultiTokenReserveV1 is
         // 7 - NFT Collection Index to Token ID
         mapping(uint256 => uint256) nfts; // index => tokenId
         // 8 - Address to Indexes[]
-        mapping(address => uint256[]) owned; // owner => indexes
+        mapping(address => EnumerableSetUpgradeable.UintSet) owned; // owner => indexes, using EnumerableSet
     }
 
     mapping(uint256 => Token) public TOKEN_RESERVE; // tokenId => Token
@@ -91,7 +94,6 @@ contract MultiTokenReserveV1 is
         __UUPSUpgradeable_init();
         __ERC1155_init("https://www.test.ipfs.com/");
         __ERC1155Burnable_init();
-        __ERC1155Supply_init();
         __ERC1155Receiver_init();
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -183,37 +185,15 @@ contract MultiTokenReserveV1 is
 
     function removeNFTId(address account, uint256 tokenId) internal {
         uint256 cID = TOKEN_COLLECTION[tokenId];
-        int256 index = findNFTId(account, cID, tokenId);
-        if (index == -1) {
+        if (cID == 0) {
             revert("Token ID not found");
         } else {
-            NFT_COLLECTIONS[cID].owned[account][
-                uint256(index)
-            ] = NFT_COLLECTIONS[cID].owned[account][
-                NFT_COLLECTIONS[cID].owned[account].length - 1
-            ];
-            NFT_COLLECTIONS[cID].owned[account].pop();
+            NFT_COLLECTIONS[cID].owned[account].remove(tokenId);
         }
-    }
-
-    function findNFTId(
-        address account,
-        uint256 collectionId,
-        uint256 tokenId
-    ) internal view returns (int256) {
-        uint256[] memory ownedNfts = NFT_COLLECTIONS[collectionId].owned[
-            account
-        ];
-        for (uint256 i = 0; i < ownedNfts.length; i++) {
-            if (NFT_COLLECTIONS[collectionId].nfts[ownedNfts[i]] == tokenId) {
-                return int256(i);
-            }
-        }
-        return -1;
     }
 
     function addNFTData(address account, uint256 tokenId) internal {
-        NFT_COLLECTIONS[TOKEN_COLLECTION[tokenId]].owned[account].push(tokenId);
+        NFT_COLLECTIONS[TOKEN_COLLECTION[tokenId]].owned[account].add(tokenId);
         TOKEN_RESERVE[tokenId].owner = account;
     }
 
@@ -313,14 +293,14 @@ contract MultiTokenReserveV1 is
             _tokenUri,
             _burnable
         );
-        // Deploy ERC20 Proxy Conract
-        address erc20Proxy = address(new ERC20ReserveProxy());
-        // Initialize Token Proxy Contract
-        ERC20ReserveProxy(erc20Proxy).initialize(
-            msg.sender,
-            address(this),
-            TOKEN_IDS.current()
-        );
+        // // Deploy ERC20 Proxy Conract
+        // address erc20Proxy = address(new ERC20ReserveProxy());
+        // // Initialize Token Proxy Contract
+        // ERC20ReserveProxy(erc20Proxy).initialize(
+        //     msg.sender,
+        //     address(this),
+        //     TOKEN_IDS.current()
+        // );
     }
 
     function spawnCollection(
@@ -330,14 +310,14 @@ contract MultiTokenReserveV1 is
         bool _burnable
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         createCollection(_name, _symbol, _tokenUri, _burnable);
-        // Deploy ERC721 Proxy Conract
-        address erc721Proxy = address(new ERC721ReserveProxy());
-        // Initialize Token Proxy Contract
-        ERC721ReserveProxy(erc721Proxy).initialize(
-            msg.sender,
-            address(this),
-            NFT_COLLECTION_IDS.current()
-        );
+        // // Deploy ERC721 Proxy Conract
+        // address erc721Proxy = address(new ERC721ReserveProxy());
+        // // Initialize Token Proxy Contract
+        // ERC721ReserveProxy(erc721Proxy).initialize(
+        //     msg.sender,
+        //     address(this),
+        //     NFT_COLLECTION_IDS.current()
+        // );
     }
 
     function mint(
@@ -379,7 +359,7 @@ contract MultiTokenReserveV1 is
         uint256 cID,
         address account
     ) public view returns (uint256[] memory) {
-        return NFT_COLLECTIONS[cID].owned[account];
+        return NFT_COLLECTIONS[cID].owned[account].values();
     }
 
     function setBaseURI(
@@ -459,7 +439,7 @@ contract MultiTokenReserveV1 is
         uint256[] memory ids,
         uint256[] memory amounts,
         bytes memory data
-    ) internal override(ERC1155Upgradeable, ERC1155SupplyUpgradeable) {
+    ) internal override(ERC1155Upgradeable) {
         for (uint256 i = 0; i < ids.length; i++) {
             if (TOKEN_COLLECTION[ids[i]] > 0) {
                 transferNFTData(from, to, i);
