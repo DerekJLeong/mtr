@@ -9,8 +9,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721Burnab
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/draft-ERC721VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./MultiTokenReserveV1.sol";
-import "./getTokenProtocolData.sol";
+import "../interfaces/IMultiTokenReserveV1.sol";
+import "../utils/getTokenProtocolData.sol";
 
 contract ERC721ReserveProxy is
     Initializable,
@@ -22,7 +22,7 @@ contract ERC721ReserveProxy is
     ERC721VotesUpgradeable,
     UUPSUpgradeable
 {
-    MultiTokenReserveV1 public MULTI_TOKEN_RESERVE;
+    IMultiTokenReserveV1 public MULTI_TOKEN_RESERVE;
     uint256 private RESERVE_COLLECTION_ID;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -37,7 +37,7 @@ contract ERC721ReserveProxy is
         address _multiTokenReserve,
         uint256 _reserveCollectionId
     ) public initializer {
-        MULTI_TOKEN_RESERVE = MultiTokenReserveV1(_multiTokenReserve);
+        MULTI_TOKEN_RESERVE = IMultiTokenReserveV1(_multiTokenReserve);
         RESERVE_COLLECTION_ID = _reserveCollectionId;
 
         __UUPSUpgradeable_init();
@@ -78,7 +78,7 @@ contract ERC721ReserveProxy is
             RESERVE_COLLECTION_ID,
             _nftId
         );
-        (, , , , , , , address owner, ) = getTokenProtocolData(
+        (, , , , , , address owner, ) = getTokenProtocolData(
             address(MULTI_TOKEN_RESERVE),
             tokenId
         );

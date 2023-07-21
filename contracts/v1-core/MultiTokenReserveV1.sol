@@ -10,11 +10,12 @@ import "@openzeppelin/contracts-upgradeable/utils/ArraysUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol"; // Added Address library
-import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol"; // Added EnumerableSet library
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "./utils/deployBytecode.sol";
+import "./interfaces/IERC20ReserveProxy.sol";
+import "./interfaces/IERC721ReserveProxy.sol";
 
-// import "./ERC20ReserveProxy.sol";
-// import "./ERC721ReserveProxy.sol";
 // TODO: ERC777ReserveProxy.sol
 
 contract MultiTokenReserveV1 is
@@ -47,11 +48,9 @@ contract MultiTokenReserveV1 is
         string symbol;
         // 6 - URI of token metadata, if applicable
         string uri;
-        // 7 - whether token is burnable
-        bool burnable;
-        // 8 - token owner
+        // 7 - token owner
         address owner;
-        // 9 - token creator
+        // 8 - token creator
         address creator;
     }
 
@@ -66,8 +65,6 @@ contract MultiTokenReserveV1 is
         string symbol;
         // 5 - URI of NFT metadata, if applicable
         string baseUri;
-        // 6 - whether NFT is burnable
-        bool burnable;
         // 7 - NFT Collection Index to Token ID
         mapping(uint256 => uint256) nfts; // index => tokenId
         // 8 - Address to Indexes[]
@@ -101,7 +98,7 @@ contract MultiTokenReserveV1 is
         _setupRole(COIN_MINTER_ROLE, msg.sender);
         _setupRole(UPGRADER_ROLE, msg.sender);
 
-        createFungibleToken(0, 18, "MyToken", "MT", "", true);
+        createFungibleToken(0, 18, "MyToken", "MT", "");
     }
 
     modifier verifyMint(
@@ -184,11 +181,12 @@ contract MultiTokenReserveV1 is
     }
 
     function removeNFTId(address account, uint256 tokenId) internal {
-        uint256 cID = TOKEN_COLLECTION[tokenId];
-        if (cID == 0) {
+        if (TOKEN_COLLECTION[tokenId] == 0) {
             revert("Token ID not found");
         } else {
-            NFT_COLLECTIONS[cID].owned[account].remove(tokenId);
+            NFT_COLLECTIONS[TOKEN_COLLECTION[tokenId]].owned[account].remove(
+                tokenId
+            );
         }
     }
 
@@ -211,8 +209,7 @@ contract MultiTokenReserveV1 is
         uint8 _granularity,
         string memory _name,
         string memory _symbol,
-        string memory _tokenUri,
-        bool _burnable
+        string memory _tokenUri
     ) internal {
         TOKEN_RESERVE[TOKEN_IDS.current()] = Token({
             totalSupply: 0,
@@ -221,7 +218,6 @@ contract MultiTokenReserveV1 is
             name: _name,
             symbol: _symbol,
             uri: _tokenUri,
-            burnable: _burnable,
             owner: address(0),
             creator: address(0)
         });
@@ -233,18 +229,10 @@ contract MultiTokenReserveV1 is
         uint8 _granularity,
         string memory _name,
         string memory _symbol,
-        string memory _tokenUri,
-        bool _burnable
+        string memory _tokenUri
     ) internal {
         FUNGIBLE_TOKENS.push(TOKEN_IDS.current());
-        createToken(
-            _maxSupply,
-            _granularity,
-            _name,
-            _symbol,
-            _tokenUri,
-            _burnable
-        );
+        createToken(_maxSupply, _granularity, _name, _symbol, _tokenUri);
     }
 
     function createNonFungibleToken(
@@ -253,25 +241,24 @@ contract MultiTokenReserveV1 is
         string memory _tokenUri
     ) internal {
         NFT_COLLECTIONS[NFT_COLLECTION_IDS.current()].totalSupply++;
-        createToken(1, 1, _name, _symbol, _tokenUri, true);
+        createToken(1, 1, _name, _symbol, _tokenUri);
         addNFTData(msg.sender, TOKEN_IDS.current() - 1);
     }
 
     function createCollection(
         string memory _name,
         string memory _symbol,
-        string memory _tokenUri,
-        bool _burnable
+        string memory _tokenUri
     ) internal {
         NFT_COLLECTION_IDS.increment();
-        uint256 cID = NFT_COLLECTION_IDS.current();
-        Collection storage newCollection = NFT_COLLECTIONS[cID];
+        Collection storage newCollection = NFT_COLLECTIONS[
+            NFT_COLLECTION_IDS.current()
+        ];
         newCollection.totalSupply = 0;
         newCollection.maxSupply = 0;
         newCollection.name = _name;
         newCollection.symbol = _symbol;
         newCollection.baseUri = _tokenUri;
-        newCollection.burnable = _burnable;
     }
 
     //
@@ -283,41 +270,44 @@ contract MultiTokenReserveV1 is
         string memory _name,
         string memory _symbol,
         string memory _tokenUri,
-        bool _burnable
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        bytes memory _data
+    ) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         createFungibleToken(
             _maxSupply,
             _granularity,
             _name,
             _symbol,
-            _tokenUri,
-            _burnable
+            _tokenUri
         );
-        // // Deploy ERC20 Proxy Conract
-        // address erc20Proxy = address(new ERC20ReserveProxy());
-        // // Initialize Token Proxy Contract
-        // ERC20ReserveProxy(erc20Proxy).initialize(
-        //     msg.sender,
-        //     address(this),
-        //     TOKEN_IDS.current()
-        // );
+        if (_data.length > 0) {
+            // Deploy ERC20 Proxy Contract
+            address erc20Proxy = deployBytecode(_data);
+            // Initialize Token Proxy Contract
+            IERC20ReserveProxy(erc20Proxy).initialize(
+                msg.sender,
+                address(this),
+                TOKEN_IDS.current()
+            );
+        }
     }
 
     function spawnCollection(
         string memory _name,
         string memory _symbol,
         string memory _tokenUri,
-        bool _burnable
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        createCollection(_name, _symbol, _tokenUri, _burnable);
-        // // Deploy ERC721 Proxy Conract
-        // address erc721Proxy = address(new ERC721ReserveProxy());
-        // // Initialize Token Proxy Contract
-        // ERC721ReserveProxy(erc721Proxy).initialize(
-        //     msg.sender,
-        //     address(this),
-        //     NFT_COLLECTION_IDS.current()
-        // );
+        bytes memory _data
+    ) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+        createCollection(_name, _symbol, _tokenUri);
+        if (_data.length > 0) {
+            // Deploy ERC721 Proxy Conract
+            address erc721Proxy = deployBytecode(_data);
+            // Initialize Token Proxy Contract
+            IERC721ReserveProxy(erc721Proxy).initialize(
+                msg.sender,
+                address(this),
+                NFT_COLLECTION_IDS.current()
+            );
+        }
     }
 
     function mint(

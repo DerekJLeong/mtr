@@ -8,8 +8,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20FlashMintUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "./MultiTokenReserveV1.sol";
-import "./getTokenProtocolData.sol";
+import "../interfaces/IMultiTokenReserveV1.sol";
+import "../utils/getTokenProtocolData.sol";
 
 contract ERC20ReserveProxy is
     Initializable,
@@ -21,7 +21,7 @@ contract ERC20ReserveProxy is
     ERC20FlashMintUpgradeable,
     UUPSUpgradeable
 {
-    MultiTokenReserveV1 public MultiTokenReserve;
+    IMultiTokenReserveV1 public MultiTokenReserve;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     address private RESERVE_ADDRESS;
@@ -34,7 +34,7 @@ contract ERC20ReserveProxy is
     }
 
     function initialize(address _contractAdmin, address _multiTokenReserve, uint256 _tokenId) public initializer {
-        MultiTokenReserve = MultiTokenReserveV1(_multiTokenReserve);
+        MultiTokenReserve = IMultiTokenReserveV1(_multiTokenReserve);
         RESERVE_TOKEN_ID = _tokenId;
 
         __ERC20_init(name(), symbol());
@@ -51,27 +51,27 @@ contract ERC20ReserveProxy is
     }
 
     function name() public view override returns (string memory) {
-        (, , , string memory tokenName, , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
+        (, , , string memory tokenName, , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
         return tokenName;
     }
 
     function symbol() public view override returns (string memory) {
-        (, , , , string memory tokenSymbol, , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
+        (, , , , string memory tokenSymbol, , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
         return tokenSymbol;
     }
 
     function decimals() public view override returns (uint8) {
-        (, , uint8 tokenDecimals, , , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
+        (, , uint8 tokenDecimals, , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
         return tokenDecimals;
     }
 
     function totalSupply() public view override returns (uint256) {
-        (uint256 tokenTotalSupply, , , , , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
+        (uint256 tokenTotalSupply, , , , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
         return tokenTotalSupply;
     }
 
     function maxSupply() public view returns (uint256) {
-        (, uint256 tokenMaxSupply, , , , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
+        (, uint256 tokenMaxSupply, , , , , , ) = getTokenProtocolData(RESERVE_ADDRESS, RESERVE_TOKEN_ID);
         return tokenMaxSupply;
     }
 
