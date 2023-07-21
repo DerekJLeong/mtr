@@ -11,7 +11,9 @@
 
 - 🦾 Interface with and participate in existing protocols using EIP compliant proxies.
 
-- 🌊 Easily extensible to fit your ideas and ecosystem's requirements, build what you can imagine with less limitations!
+- 🌊 Easily extensible to fit your ideas and ecosystem's requirements
+
+- 🔥 Build with less limitations!
 
 ## 🏛️ Licensing
 ### v1-core
