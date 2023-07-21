@@ -1,6 +1,9 @@
 # Multitoken Reserve
 
-Easily extensible ERC1155 protocol for creating and managing an ecosystem comprising of multiple ERC20 tokens and ERC721 collections under a single entity.
+Easily extensible ERC1155 protocol for creating and managing an ecosystem comprising of multiple ERC20 tokens, ERC721 collections, and ERC1155 semi-fungible collections under a single entity.
+Singleton contract protocol design.
+In-ecosystem transactions that are exeedingly more gas efficient compared to multi-contract ERC20/ERC721 counterparts.
+Interface with and participate in existing protocols using EIP compliant proxies.
 
 ## Licensing
 ### v1-core
