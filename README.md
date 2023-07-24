@@ -1,6 +1,6 @@
 # Multi-Token Reserve 🧠💰🕹️
 
-## 👋 Introducing an the Multi-Token Reserve 🌎
+## 👋🌎 Introducing... the Multi-Token Reserve
 ### An easily extensible ERC1155 protocol for creating, managing, and scaling an ecosystem comprising of multiple tokens, non-fungible collections, and funglible collections under a single entity.
 
 
