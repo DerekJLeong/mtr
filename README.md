@@ -25,4 +25,6 @@ The primary license for MultiToken Reserve V1 Core is the Business Source Licens
 ## 🔮 Coming Soon:
 - add ERC777ReserveProxy
 - add Tests
+- decouple from ERC1155
+- make work
 - improve README
